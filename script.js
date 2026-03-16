@@ -1,13 +1,9 @@
+const API = 'http://localhost:8081/docentes';
+let indiceEditando = null;
 
-let docentes = [];
-
-
-let indiceEditando = -1;
-
-
-const btnGuardar  = document.getElementById('btnGuardar');
-const btnCancelar = document.getElementById('btnCancelar');
-const cuerpoTabla = document.getElementById('cuerpoTabla');
+const btnGuardar   = document.getElementById('btnGuardar');
+const btnCancelar  = document.getElementById('btnCancelar');
+const cuerpoTabla  = document.getElementById('cuerpoTabla');
 const mensajeVacio = document.getElementById('mensajeVacio');
 
 
@@ -50,21 +46,21 @@ function limpiarFormulario() {
 }
 
 
-function renderizarTabla() {
-  
+async function cargarTabla() {
+  const response = await fetch(API);
+  const docentes = await response.json();
+
   cuerpoTabla.innerHTML = '';
 
-  
   if (docentes.length === 0) {
     mensajeVacio.style.display = 'block';
     return;
   }
+
   mensajeVacio.style.display = 'none';
 
-  
   docentes.forEach((docente, index) => {
     const fila = document.createElement('tr');
-
     fila.innerHTML = `
       <td>${index + 1}</td>
       <td>${docente.tipoDocumento}</td>
@@ -77,39 +73,46 @@ function renderizarTabla() {
       <td>${docente.eps}</td>
       <td>$${Number(docente.salario).toLocaleString('es-CO')}</td>
       <td>
-        <button class="btn-edit"   onclick="editarDocente(${index})"> Editar</button>
-        <button class="btn-delete" onclick="eliminarDocente(${index})"> Eliminar</button>
+        <button class="btn-edit"   onclick="editarDocente(${docente.id})"> Editar</button>
+        <button class="btn-delete" onclick="eliminarDocente(${docente.id})"> Eliminar</button>
       </td>
     `;
-
     cuerpoTabla.appendChild(fila);
   });
 }
 
 
-btnGuardar.addEventListener('click', function () {
+btnGuardar.addEventListener('click', async function () {
   const docente = leerFormulario();
-
   if (!validarFormulario(docente)) return;
 
-  if (indiceEditando === -1) {
+  if (indiceEditando === null) {
     
-    docentes.push(docente);
+    await fetch(API, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(docente)
+    });
   } else {
     
-    docentes[indiceEditando] = docente;
-    indiceEditando = -1;
-    btnGuardar.textContent = 'Guardar Docente';
+    await fetch(`${API}/${indiceEditando}`, {
+      method : 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(docente)
+    });
+    indiceEditando            = null;
+    btnGuardar.textContent    = 'Guardar Docente';
     btnCancelar.style.display = 'none';
   }
 
   limpiarFormulario();
-  renderizarTabla();
+  cargarTabla();
 });
 
 
-function editarDocente(index) {
-  const docente = docentes[index];
+async function editarDocente(id) {
+  const response = await fetch(`${API}/${id}`);
+  const docente  = await response.json();
 
   document.getElementById('tipoDocumento').value   = docente.tipoDocumento;
   document.getElementById('nombre').value          = docente.nombre;
@@ -121,41 +124,29 @@ function editarDocente(index) {
   document.getElementById('eps').value             = docente.eps;
   document.getElementById('salario').value         = docente.salario;
 
-  
-  indiceEditando = index;
+  indiceEditando            = id;
   btnGuardar.textContent    = 'Actualizar Docente';
   btnCancelar.style.display = 'inline-block';
 
-  
   document.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
 }
 
 
-function eliminarDocente(index) {
-  const docente = docentes[index];
-  const confirmar = confirm(`¿Seguro que deseas eliminar a ${docente.nombre} ${docente.apellido}?`);
-
+async function eliminarDocente(id) {
+  const confirmar = confirm('¿Seguro que deseas eliminar este docente?');
   if (confirmar) {
-    docentes.splice(index, 1);
-
-    
-    if (indiceEditando === index) {
-      cancelarEdicion();
-    }
-
-    renderizarTabla();
+    await fetch(`${API}/${id}`, { method: 'DELETE' });
+    cargarTabla();
   }
 }
 
 
-btnCancelar.addEventListener('click', cancelarEdicion);
-
-function cancelarEdicion() {
-  indiceEditando            = -1;
+btnCancelar.addEventListener('click', function () {
+  indiceEditando            = null;
   btnGuardar.textContent    = 'Guardar Docente';
   btnCancelar.style.display = 'none';
   limpiarFormulario();
-}
+});
 
 
-renderizarTabla();
+cargarTabla();
